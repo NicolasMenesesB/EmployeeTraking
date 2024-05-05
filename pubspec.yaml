@@ -9,11 +9,10 @@ environment:
 dependencies:
   flutter:
     sdk: flutter
-
-dev_dependencies:
-  flutter_test:
-    sdk: flutter
   flutter_lints: ^3.0.0
+  firebase_core: ^2.15.0  # Update with the latest version
+  cloud_firestore: ^4.8.0  # Replace with the latest version
+
 
 flutter:
   uses-material-design: true

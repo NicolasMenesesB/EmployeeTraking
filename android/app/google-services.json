@@ -1,0 +1,29 @@
+{
+  "project_info": {
+    "project_number": "1034298218519",
+    "project_id": "employeetraking-e250e",
+    "storage_bucket": "employeetraking-e250e.appspot.com"
+  },
+  "client": [
+    {
+      "client_info": {
+        "mobilesdk_app_id": "1:1034298218519:android:07d1bb57e299f0bd45a452",
+        "android_client_info": {
+          "package_name": "com.example.flutter_application_2"
+        }
+      },
+      "oauth_client": [],
+      "api_key": [
+        {
+          "current_key": "AIzaSyA5PF19ldVekqhF9nADDikBw-I5cLWlX3M"
+        }
+      ],
+      "services": {
+        "appinvite_service": {
+          "other_platform_oauth_client": []
+        }
+      }
+    }
+  ],
+  "configuration_version": "1"
+}
