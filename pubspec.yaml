@@ -12,6 +12,9 @@ dependencies:
   flutter_lints: ^3.0.0
   firebase_core: ^2.15.0  # Update with the latest version
   cloud_firestore: ^4.8.0  # Replace with the latest version
+  flutter_map: ^4.0.0 # Asegúrate de usar la última versión disponible
+  latlong2: ^0.8.0    # Biblioteca para manejar coordenadas geográficas
+
 
 
 flutter:

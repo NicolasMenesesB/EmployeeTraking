@@ -2,6 +2,7 @@ import 'package:flutter/material.dart';
 import 'firebase_options.dart';
 import 'package:firebase_core/firebase_core.dart';
 import 'package:cloud_firestore/cloud_firestore.dart';
+import 'OPS.dart'; // Importa el archivo de la nueva pantalla
 
 Future<void> main() async {
   WidgetsFlutterBinding.ensureInitialized();
@@ -96,6 +97,16 @@ class _AdminFormState extends State<AdminForm> {
               }
             },
             child: const Text('Add Admin'),
+          ),
+          const SizedBox(height: 16),
+          ElevatedButton(
+            onPressed: () {
+              Navigator.push(
+                context,
+                MaterialPageRoute(builder: (context) => const OPS()),
+              );
+            },
+            child: const Text('Open Street Map'),
           ),
         ],
       ),
