@@ -11,15 +11,140 @@ class OPS extends StatefulWidget {
   _OPSState createState() => _OPSState();
 }
 
+class Point {
+  LatLng coordinates;
+  String name;
+  String description;
+  double radius;
+
+  Point({
+    required this.coordinates,
+    required this.name,
+    required this.description,
+    required this.radius,
+  });
+}
+
 class _OPSState extends State<OPS> {
-  final List<LatLng> _points = [];
+  final List<Point> _points = [];
   final MapController _mapController = MapController();
   final TextEditingController _searchController = TextEditingController();
+  final TextEditingController _nameController = TextEditingController();
+  final TextEditingController _descriptionController = TextEditingController();
+  final TextEditingController _radiusController = TextEditingController();
 
   void _addPoint(LatLng point) {
-    setState(() {
-      _points.add(point);
-    });
+    showDialog(
+      context: context,
+      builder: (BuildContext context) {
+        return AlertDialog(
+          title: const Text('Add Point'),
+          content: Column(
+            mainAxisSize: MainAxisSize.min,
+            children: [
+              TextField(
+                controller: _nameController,
+                decoration: const InputDecoration(labelText: 'Name'),
+              ),
+              TextField(
+                controller: _descriptionController,
+                decoration: const InputDecoration(labelText: 'Description'),
+              ),
+              TextField(
+                controller: _radiusController,
+                decoration: const InputDecoration(labelText: 'Radius (meters)'),
+                keyboardType: TextInputType.number,
+              ),
+            ],
+          ),
+          actions: [
+            TextButton(
+              onPressed: () {
+                Navigator.of(context).pop();
+              },
+              child: const Text('Cancel'),
+            ),
+            TextButton(
+              onPressed: () {
+                final String name = _nameController.text.trim();
+                final String description = _descriptionController.text.trim();
+                final double radius =
+                    double.parse(_radiusController.text.trim());
+                setState(() {
+                  _points.add(Point(
+                    coordinates: point,
+                    name: name,
+                    description: description,
+                    radius: radius,
+                  ));
+                });
+                _nameController.clear();
+                _descriptionController.clear();
+                _radiusController.clear();
+                Navigator.of(context).pop();
+              },
+              child: const Text('Add'),
+            ),
+          ],
+        );
+      },
+    );
+  }
+
+  void _editPoint(int index) {
+    final point = _points[index];
+    _nameController.text = point.name;
+    _descriptionController.text = point.description;
+    _radiusController.text = point.radius.toString();
+
+    showDialog(
+      context: context,
+      builder: (BuildContext context) {
+        return AlertDialog(
+          title: const Text('Edit Point'),
+          content: Column(
+            mainAxisSize: MainAxisSize.min,
+            children: [
+              TextField(
+                controller: _nameController,
+                decoration: const InputDecoration(labelText: 'Name'),
+              ),
+              TextField(
+                controller: _descriptionController,
+                decoration: const InputDecoration(labelText: 'Description'),
+              ),
+              TextField(
+                controller: _radiusController,
+                decoration: const InputDecoration(labelText: 'Radius (meters)'),
+                keyboardType: TextInputType.number,
+              ),
+            ],
+          ),
+          actions: [
+            TextButton(
+              onPressed: () {
+                Navigator.of(context).pop();
+              },
+              child: const Text('Cancel'),
+            ),
+            TextButton(
+              onPressed: () {
+                setState(() {
+                  point.name = _nameController.text.trim();
+                  point.description = _descriptionController.text.trim();
+                  point.radius = double.parse(_radiusController.text.trim());
+                });
+                _nameController.clear();
+                _descriptionController.clear();
+                _radiusController.clear();
+                Navigator.of(context).pop();
+              },
+              child: const Text('Save'),
+            ),
+          ],
+        );
+      },
+    );
   }
 
   void _removePoint(int index) {
@@ -98,9 +223,8 @@ class _OPSState extends State<OPS> {
                   child: FlutterMap(
                     mapController: _mapController,
                     options: MapOptions(
-                      center: LatLng(-17.41390155045497,
-                          -66.16539789764035), // Coordenadas iniciales
-                      zoom: 13.0, // Nivel de zoom inicial
+                      center: LatLng(-17.41390155045497, -66.16539789764035),
+                      zoom: 13.0,
                       onTap: (tapPosition, point) {
                         _addPoint(point);
                       },
@@ -114,9 +238,20 @@ class _OPSState extends State<OPS> {
                       MarkerLayer(
                         markers: _points.map((point) {
                           return Marker(
-                            point: point,
+                            point: point.coordinates,
                             builder: (ctx) => const Icon(Icons.location_on,
                                 color: Colors.red, size: 40.0),
+                          );
+                        }).toList(),
+                      ),
+                      CircleLayer(
+                        circles: _points.map((point) {
+                          return CircleMarker(
+                            point: point.coordinates,
+                            radius: point.radius,
+                            color: Colors.blue.withOpacity(0.3),
+                            borderStrokeWidth: 2.0,
+                            borderColor: Colors.blue,
                           );
                         }).toList(),
                       ),
@@ -129,7 +264,7 @@ class _OPSState extends State<OPS> {
                     children: [
                       const Padding(
                         padding: EdgeInsets.all(8.0),
-                        child: Text('Coordenadas:'),
+                        child: Text('Coordinates:'),
                       ),
                       Expanded(
                         child: ListView.builder(
@@ -138,10 +273,18 @@ class _OPSState extends State<OPS> {
                             final point = _points[index];
                             return ListTile(
                               title: Text(
-                                  '(${point.latitude}, ${point.longitude})'),
+                                  '${point.name} (${point.coordinates.latitude}, ${point.coordinates.longitude})'),
+                              subtitle: Text(point.description),
                               trailing: Row(
                                 mainAxisSize: MainAxisSize.min,
                                 children: [
+                                  IconButton(
+                                    icon: const Icon(Icons.edit,
+                                        color: Colors.orange),
+                                    onPressed: () {
+                                      _editPoint(index);
+                                    },
+                                  ),
                                   IconButton(
                                     icon: const Icon(Icons.delete,
                                         color: Colors.red),
@@ -153,7 +296,7 @@ class _OPSState extends State<OPS> {
                                     icon: const Icon(Icons.center_focus_strong,
                                         color: Colors.blue),
                                     onPressed: () {
-                                      _centerMap(point);
+                                      _centerMap(point.coordinates);
                                     },
                                   ),
                                 ],
