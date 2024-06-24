@@ -8,12 +8,19 @@ environment:
 
 dependencies:
   flutter:
-    sdk: flutter
-  flutter_lints: ^3.0.0
-  firebase_core: ^2.15.0  # Update with the latest version
-  cloud_firestore: ^4.8.0  # Replace with the latest version
-  flutter_map: ^4.0.0 # Asegúrate de usar la última versión disponible
-  latlong2: ^0.8.0    # Biblioteca para manejar coordenadas geográficas
+    sdk: flutter  
+  firebase_core: ^2.15.0
+  cloud_firestore: ^4.8.0
+  flutter_map: ^4.0.0
+  latlong2: ^0.8.0
+  firebase_storage: ^11.7.6
+  firebase_auth: ^4.19.6
+  image_picker: ^1.1.1
+  universal_html: ^2.0.9
+  flutter_lints: ^4.0.0
+  flutter_animate: ^4.5.0
+  google_fonts: ^4.0.4
+
 
 
 

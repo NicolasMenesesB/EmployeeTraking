@@ -1,6 +1,7 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_map/flutter_map.dart';
 import 'package:latlong2/latlong.dart';
+import 'package:cloud_firestore/cloud_firestore.dart';
 import 'package:http/http.dart' as http;
 import 'dart:convert';
 
@@ -12,17 +13,42 @@ class OPS extends StatefulWidget {
 }
 
 class Point {
-  LatLng coordinates;
-  String name;
-  String description;
-  double radius;
+  final LatLng coordinates;
+  final String name;
+  final String description;
+  final double radius;
+  String? docId;
 
   Point({
     required this.coordinates,
     required this.name,
     required this.description,
     required this.radius,
+    this.docId,
   });
+
+  Map<String, dynamic> toMap() {
+    return {
+      'coordinates': {
+        'latitude': coordinates.latitude,
+        'longitude': coordinates.longitude,
+      },
+      'name': name,
+      'description': description,
+      'radius': radius,
+    };
+  }
+
+  factory Point.fromMap(Map<String, dynamic> map, {String? id}) {
+    return Point(
+      coordinates: LatLng(map['coordinates']['latitude'] as double,
+          map['coordinates']['longitude'] as double),
+      name: map['name'] as String,
+      description: map['description'] as String,
+      radius: map['radius'] as double,
+      docId: id,
+    );
+  }
 }
 
 class _OPSState extends State<OPS> {
@@ -32,6 +58,75 @@ class _OPSState extends State<OPS> {
   final TextEditingController _nameController = TextEditingController();
   final TextEditingController _descriptionController = TextEditingController();
   final TextEditingController _radiusController = TextEditingController();
+
+  @override
+  void initState() {
+    super.initState();
+    _loadPointsFromFirebase();
+  }
+
+  Future<void> _loadPointsFromFirebase() async {
+    try {
+      final querySnapshot =
+          await FirebaseFirestore.instance.collection('points').get();
+
+      setState(() {
+        _points.clear();
+        for (var doc in querySnapshot.docs) {
+          final data = doc.data() as Map<String, dynamic>;
+
+          // Ensure coordinates data is present and of the correct type
+          if (data.containsKey('coordinates') &&
+              data['coordinates'] is Map<String, dynamic>) {
+            final coordinatesData = data['coordinates'] as Map<String, dynamic>;
+            final latitude = coordinatesData['latitude'];
+            final longitude = coordinatesData['longitude'];
+
+            // Ensure latitude and longitude are of type double and within valid range
+            if (latitude is double &&
+                longitude is double &&
+                latitude >= -90 &&
+                latitude <= 90 &&
+                longitude >= -180 &&
+                longitude <= 180) {
+              final coordinates = LatLng(latitude, longitude);
+              final point = Point(
+                coordinates: coordinates,
+                name: data['name'] as String,
+                description: data['description'] as String,
+                radius: data['radius'] as double,
+                docId: doc.id,
+              );
+              _points.add(point);
+            } else {
+              print('Error: Latitude or Longitude is not within valid range.');
+            }
+          } else {
+            print(
+                'Error: Coordinates data is missing or not in the expected format.');
+          }
+        }
+      });
+    } catch (error) {
+      print('Error fetching points: $error');
+      // Handle error as needed
+    }
+  }
+
+  Future<void> _savePointToFirebase(Point point) async {
+    await FirebaseFirestore.instance.collection('points').add(point.toMap());
+  }
+
+  Future<void> _updatePointInFirebase(String docId, Point point) async {
+    await FirebaseFirestore.instance
+        .collection('points')
+        .doc(docId)
+        .update(point.toMap());
+  }
+
+  Future<void> _deletePointFromFirebase(String docId) async {
+    await FirebaseFirestore.instance.collection('points').doc(docId).delete();
+  }
 
   void _addPoint(LatLng point) {
     showDialog(
@@ -70,14 +165,16 @@ class _OPSState extends State<OPS> {
                 final String description = _descriptionController.text.trim();
                 final double radius =
                     double.parse(_radiusController.text.trim());
+                final newPoint = Point(
+                  coordinates: point,
+                  name: name,
+                  description: description,
+                  radius: radius,
+                );
                 setState(() {
-                  _points.add(Point(
-                    coordinates: point,
-                    name: name,
-                    description: description,
-                    radius: radius,
-                  ));
+                  _points.add(newPoint);
                 });
+                _savePointToFirebase(newPoint);
                 _nameController.clear();
                 _descriptionController.clear();
                 _radiusController.clear();
@@ -93,51 +190,63 @@ class _OPSState extends State<OPS> {
 
   void _editPoint(int index) {
     final point = _points[index];
-    _nameController.text = point.name;
-    _descriptionController.text = point.description;
-    _radiusController.text = point.radius.toString();
+    TextEditingController nameController =
+        TextEditingController(text: point.name);
+    TextEditingController descriptionController =
+        TextEditingController(text: point.description);
+    TextEditingController radiusController =
+        TextEditingController(text: point.radius.toString());
 
     showDialog(
       context: context,
-      builder: (BuildContext context) {
+      builder: (context) {
         return AlertDialog(
           title: const Text('Edit Point'),
           content: Column(
             mainAxisSize: MainAxisSize.min,
             children: [
               TextField(
-                controller: _nameController,
+                controller: nameController,
                 decoration: const InputDecoration(labelText: 'Name'),
               ),
               TextField(
-                controller: _descriptionController,
+                controller: descriptionController,
                 decoration: const InputDecoration(labelText: 'Description'),
               ),
               TextField(
-                controller: _radiusController,
-                decoration: const InputDecoration(labelText: 'Radius (meters)'),
+                controller: radiusController,
+                decoration: const InputDecoration(labelText: 'Radius'),
                 keyboardType: TextInputType.number,
               ),
             ],
           ),
           actions: [
             TextButton(
-              onPressed: () {
-                Navigator.of(context).pop();
-              },
+              onPressed: () => Navigator.pop(context),
               child: const Text('Cancel'),
             ),
             TextButton(
-              onPressed: () {
+              onPressed: () async {
+                Navigator.pop(context);
                 setState(() {
-                  point.name = _nameController.text.trim();
-                  point.description = _descriptionController.text.trim();
-                  point.radius = double.parse(_radiusController.text.trim());
+                  _points[index] = Point(
+                    coordinates: point.coordinates,
+                    name: nameController.text,
+                    description: descriptionController.text,
+                    radius: double.parse(radiusController.text),
+                    docId: point.docId,
+                  );
                 });
-                _nameController.clear();
-                _descriptionController.clear();
-                _radiusController.clear();
-                Navigator.of(context).pop();
+                if (point.docId != null) {
+                  await FirebaseFirestore.instance
+                      .collection('points')
+                      .doc(point.docId!)
+                      .update({
+                    'name': nameController.text,
+                    'description': descriptionController.text,
+                    'radius': double.parse(radiusController.text),
+                  });
+                }
               },
               child: const Text('Save'),
             ),
@@ -147,7 +256,14 @@ class _OPSState extends State<OPS> {
     );
   }
 
-  void _removePoint(int index) {
+  void _removePoint(int index) async {
+    final point = _points[index];
+    if (point.docId != null) {
+      await FirebaseFirestore.instance
+          .collection('points')
+          .doc(point.docId!)
+          .delete();
+    }
     setState(() {
       _points.removeAt(index);
     });
@@ -250,8 +366,8 @@ class _OPSState extends State<OPS> {
                             point: point.coordinates,
                             radius: point.radius,
                             color: Colors.blue.withOpacity(0.3),
-                            borderStrokeWidth: 2.0,
                             borderColor: Colors.blue,
+                            borderStrokeWidth: 2,
                           );
                         }).toList(),
                       ),
@@ -264,23 +380,26 @@ class _OPSState extends State<OPS> {
                     children: [
                       const Padding(
                         padding: EdgeInsets.all(8.0),
-                        child: Text('Coordinates:'),
+                        child: Text('Coordenadas:'),
                       ),
                       Expanded(
                         child: ListView.builder(
                           itemCount: _points.length,
                           itemBuilder: (context, index) {
                             final point = _points[index];
+                            final docId =
+                                ''; // You need to fetch the document ID
                             return ListTile(
                               title: Text(
-                                  '${point.name} (${point.coordinates.latitude}, ${point.coordinates.longitude})'),
-                              subtitle: Text(point.description),
+                                  '(${point.coordinates.latitude}, ${point.coordinates.longitude})'),
+                              subtitle: Text(
+                                  'Name: ${point.name}\nDescription: ${point.description}\nRadius: ${point.radius} meters'),
                               trailing: Row(
                                 mainAxisSize: MainAxisSize.min,
                                 children: [
                                   IconButton(
                                     icon: const Icon(Icons.edit,
-                                        color: Colors.orange),
+                                        color: Colors.blue),
                                     onPressed: () {
                                       _editPoint(index);
                                     },
